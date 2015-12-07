@@ -1,0 +1,8 @@
+---
+spring.datasourcejychan:
+    driverClassName: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/jychan_box
+    username: root
+    password: sa
+
+---
