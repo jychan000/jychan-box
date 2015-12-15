@@ -1,5 +1,7 @@
 package com.jychan.box.machinelearning.bp;
 
+import java.io.*;
+
 /**
  * @author chenjinying
  * @version 15/12/12 11:32
@@ -27,40 +29,7 @@ public class BpNetworkTest {
 
     private double rate;  //学习速率,初定0.1
 
-
-    /**
-     * 激励函数 g(x) is sigmoid function
-     */
-    public double sigmoid(double x) {
-        return 1 / (1 + Math.exp(-x));
-    }
-
-
-    /**
-     * 误差计算
-     * @param Y 期望输出
-     * @param O 输出层输出
-     * @return 误差期望
-     */
-    public double E(double[] Y, double[] O) {
-        int n = O.length;
-        double sum = 0;
-        for (int k=0; k<n; k++) {
-            sum += (Math.pow((Y[k] - O[k]), 2));
-        }
-        sum = sum / 2;
-        return sum;
-    }
-
-    public double updateWij(double wij) {
-        return 0;
-    }
-    public double updateWjk(double wjk ) {
-        return 0;
-    }
-
-
-
+    private double errorValueSuccess;//允许误差范围
 
 
 
@@ -96,6 +65,16 @@ public class BpNetworkTest {
 
         //学习速率
         rate = 0.1;
+
+        //允许误差范围
+        errorValueSuccess = 0.0001;
+    }
+
+    /**
+     * 激励函数 g(x) is sigmoid function
+     */
+    public double sigmoid(double x) {
+        return 1 / (1 + Math.exp(-x));
     }
 
     /**
@@ -127,12 +106,69 @@ public class BpNetworkTest {
         return sum;
     }
 
+
+    /**
+     * 误差计算
+     * @param oOut 输出层输出
+     * @param oExpect 期望输出
+     * @return 误差值
+     */
+    public double errorCalculation(double[] oOut, double[] oExpect) {
+        double errorValue = 0;
+        for (int k=0; k<nOut; k++) {
+            errorValue += (Math.pow((oExpect[k] - oOut[k]), 2));
+        }
+        errorValue = errorValue / 2;
+        return errorValue;
+    }
+
+    /**
+     * 更新网络
+     */
+    public void updateNetwork(double[] oHidden, double[] oOut, double[] oExpect) {
+        double[] sumWEj = new double[nHid];
+
+        //计算 SUM(Wjk * ek): k:1->nOut
+        for (int j=0; j<nHid; j++) {
+            double sumWETmp = 0;
+            for (int k=0; k<nOut; k++) {
+                sumWETmp += (Wjk[j][k] * (oExpect[k] - oOut[k]));
+            }
+            sumWEj[j] = sumWETmp;
+        }
+
+        // 更新网络权重 Wij
+        for (int i=0; i<nIn; i++) {
+            for (int j=0; j<nHid; j++) {
+                Wij[i][j] += (rate * oHidden[j] * (1 - oHidden[j]) * sumWEj[j]);
+            }
+        }
+
+        // 更新网络权重 Wjk
+        for (int j=0; j<nHid; j++) {
+            for (int k=0; k<nOut; k++) {
+                Wjk[j][k] += (rate * oHidden[j] * (oExpect[k] - oOut[k]));
+            }
+        }
+
+        // 更新偏置值a
+        for (int j=0; j<nHid; j++) {
+            a[j] += (rate * oHidden[j] * (1 - oHidden[j]) * sumWEj[j]);
+        }
+
+        // 更新偏置值b
+        for (int k=0; k<nOut; k++) {
+            b[k] += (rate * (oExpect[k] - oOut[k]));
+        }
+    }
+
     /**
      * 计算出这次训练,全部输出节点的值
      * @param x 样本输入
-     * @return 返回输出节点的值
+     * @param oExpect 样本期望输出
+     * @return 本次输出的误差
      */
-    public double[] trainingOneTime(double[] x) {
+    public double trainingOne(double[] x, double[] oExpect) {
 
         //隐含层的输出
         double[] oHidden = new double[nHid];
@@ -146,42 +182,91 @@ public class BpNetworkTest {
             oOut[k] = oOut(k, oHidden);
         }
 
-        //误差计算
+        //计算误差
+        double errorValue = errorCalculation(oOut, oExpect);
 
+        //更新网络
+        if (errorValue > errorValueSuccess) {
+            updateNetwork(oHidden, oOut, oExpect);
+        }
 
-        return null;
+        System.out.println(x[0] + "^2 " + " + " + x[1] + " = " + oOut[0] + "\t" + oExpect[0] + "\te=" + errorValue);
+        return errorValue;
     }
+
 
     /**
      * 训练样本1次
      * @param x 样本输入
      * @param oExpect 期望输出
      */
-    public void training(double[] x, double[] oExpect) {
-        double[] o = trainingOneTime(x);
-        //x 输入
-        //o 输出
-        //oExpect 期望输出
+    public double training(double[] x, double[] oExpect) {
 
+//        int maxTime = 10;
+//        while (maxTime > 0) {
+
+            //计算网络输出层的输出
+            double errorValue = trainingOne(x, oExpect);
+
+//            if (errorValue <= errorValueSuccess) {
+//                //误差达到可接受范围,停止训练
+//                break;
+//            }
+
+
+//            maxTime--;
+//        }
+        return errorValue;
 
     }
 
     public void start() {
+
+        String filePathIn = "/Users/Raymond/IdeaProjects/jychan-box/src/main/java/com/jychan/box/machinelearning/bp/data_fun_input";
+
         //1.初始化
-        //2.
+        init(2, 4, 1);
+        System.out.println("初始化完成");
 
 
-        //1.初始化
-        init(3, 4, 3);
+        File file = new File(filePathIn);
 
-        //2.训练样本
+        for(int p=0; p<1000; p++) {
+
+            System.out.println("=========================================");
+            try {
+                BufferedReader in = new BufferedReader(new FileReader(file));
+                String line = null;
+
+                while ((line = in.readLine()) != null) {
+                    String[] datas = line.split("   ");
+                    if (datas.length == 0)
+                        continue;
+
+                    double[] dataInput = new double[datas.length];
+                    double[] dataOutput = new double[1];
+
+                    for (int i = 0; i < datas.length; i++) {
+                        dataInput[i] = Double.parseDouble(datas[i]);
+                    }
+
+                    double output = dataInput[0] * dataInput[0] + dataInput[1];
+                    dataOutput[0] = output;
+
+                    //一次样本训练
+                    training(dataInput, dataOutput);
+                }
 
 
-        //
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
     }
 
     public static void main(String[] args) {
-        //1.初始化
+        BpNetworkTest test = new BpNetworkTest();
+        test.start();
     }
 }
